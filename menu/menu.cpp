@@ -288,3 +288,53 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
+
+enum MenuOption { PLAY, QUIT, CREDITS, STATISTICS, NONE };
+MenuOption currentMenuOption = NONE;
+
+void showMenu(ALLEGRO_FONT *font) {
+    // Display menu options
+    al_draw_text(font, al_map_rgb(255, 255, 255), SCREEN_W / 2, SCREEN_H / 4, ALLEGRO_ALIGN_CENTRE, "Play");
+    al_draw_text(font, al_map_rgb(255, 255, 255), SCREEN_W / 2, SCREEN_H / 2, ALLEGRO_ALIGN_CENTRE, "Quit");
+    al_draw_text(font, al_map_rgb(255, 255, 255), SCREEN_W / 2, 3 * SCREEN_H / 4, ALLEGRO_ALIGN_CENTRE, "Credits");
+    al_draw_text(font, al_map_rgb(255, 255, 255), SCREEN_W / 2, SCREEN_H, ALLEGRO_ALIGN_CENTRE, "Statistics");
+}
+
+void handleMenuInput(ALLEGRO_EVENT &event) {
+    if (event.type == ALLEGRO_EVENT_KEY_DOWN) {
+        switch (event.keyboard.keycode) {
+            case ALLEGRO_KEY_1:
+                currentMenuOption = PLAY;
+                break;
+            case ALLEGRO_KEY_2:
+                currentMenuOption = QUIT;
+                break;
+            case ALLEGRO_KEY_3:
+                currentMenuOption = CREDITS;
+                break;
+            case ALLEGRO_KEY_4:
+                currentMenuOption = STATISTICS;
+                break;
+        }
+    }
+}
+
+void performMenuAction() {
+    switch (currentMenuOption) {
+        case PLAY:
+            // Start the game
+            break;
+        case QUIT:
+            // Exit the game
+            break;
+        case CREDITS:
+            // Show credits
+            break;
+        case STATISTICS:
+            // Show statistics
+            break;
+        default:
+            break;
+    }
+}
