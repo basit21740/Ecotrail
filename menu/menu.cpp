@@ -1,54 +1,290 @@
 #include <allegro5/allegro.h>
+#include <allegro5/allegro_image.h>
+#include <allegro5/allegro_native_dialog.h>
 #include <allegro5/allegro_font.h>
-#include <allegro5/allegro_ttf.h>
+#include <cstdlib>
+#include <ctime>
 
-const int SCREEN_WIDTH = 800;
-const int SCREEN_HEIGHT = 600;
+const int SCREEN_W = 640;  // screen width
+const int SCREEN_H = 480;  // screen height
+const int WIDTH = 800;
+const int HEIGHT = 600;
 
-int main() {
-    al_init(); // Initialize Allegro
-    al_install_keyboard(); // Initialize keyboard routines
-    al_init_font_addon(); // Initialize the font addon
-    al_init_ttf_addon(); // Initialize the ttf (True Type Font) addon
+#define SLATEGREY al_map_rgb(112, 128, 144)
 
-    ALLEGRO_DISPLAY *display = al_create_display(SCREEN_WIDTH, SCREEN_HEIGHT); // Create display
-    ALLEGRO_EVENT_QUEUE *event_queue = al_create_event_queue(); // Create event queue
-    ALLEGRO_FONT *font = al_load_ttf_font("your_font.ttf", 36, 0); // Load your font
+ALLEGRO_DISPLAY *display = nullptr;
+ALLEGRO_BITMAP *snakeHeadImage = nullptr;
+ALLEGRO_BITMAP *oilImage = nullptr;
+ALLEGRO_BITMAP *treeImage = nullptr;
+ALLEGRO_BITMAP *grassImage = nullptr;
+ALLEGRO_FONT *font = nullptr;
 
-    if (!font) {
-        al_show_native_message_box(display, "Error", "Error", "Could not load 'your_font.ttf'.", nullptr, ALLEGRO_MESSAGEBOX_ERROR);
+ALLEGRO_EVENT_QUEUE *event_queue = nullptr;  // Add event queue object
+
+// Declare
+bool movingUp = false;
+bool movingDown = false;
+bool movingLeft = false;
+bool movingRight = false;
+int score = 0;  // Variable to keep track of the score
+
+double snakeSpeed = 2.0;  // Initial speed of the snake
+
+void showError(const char *message) {
+    al_show_native_message_box(display, "Error", "Error", message, nullptr, ALLEGRO_MESSAGEBOX_ERROR);
+}
+
+void renderGame(int dx, int dy, int treeX, int treeY, int oilX, int oilY);
+
+void handleInput(ALLEGRO_EVENT &ev) {
+    if (ev.type == ALLEGRO_EVENT_KEY_DOWN) {
+        // Update direction based on the key pressed
+        switch (ev.keyboard.keycode) {
+            case ALLEGRO_KEY_UP:
+                movingUp = true;
+                movingDown = false;
+                movingLeft = false;
+                movingRight = false;
+                break;
+            case ALLEGRO_KEY_DOWN:
+                movingUp = false;
+                movingDown = true;
+                movingLeft = false;
+                movingRight = false;
+                break;
+            case ALLEGRO_KEY_LEFT:
+                movingUp = false;
+                movingDown = false;
+                movingLeft = true;
+                movingRight = false;
+                break;
+            case ALLEGRO_KEY_RIGHT:
+                movingUp = false;
+                movingDown = false;
+                movingLeft = false;
+                movingRight = true;
+                break;
+            case ALLEGRO_KEY_ESCAPE:
+                // Escape key code
+                break;
+        }
+    }
+}
+
+void renderGame(int dx, int dy, int treeX, int treeY, int oilX, int oilY) {
+    al_clear_to_color(al_map_rgb(0, 0, 0));  // Clear to black (or any desired background color)
+
+    // Draw the grass background
+    al_draw_bitmap(grassImage, 0, 0, 0);
+
+    // Draw other images on top of the grass background
+    al_draw_bitmap(snakeHeadImage, dx, dy, 0);
+    al_draw_bitmap(oilImage, oilX, oilY, 0);
+    al_draw_bitmap(treeImage, treeX, treeY, 0);
+
+    // Draw the score on the screen
+    al_draw_textf(font, al_map_rgb(255, 255, 255), 10, 10, 0, "Score: %d", score);
+
+    al_flip_display();
+}
+
+void updateGameSpeed(double elapsedTime, double &snakeSpeed) {
+    // Increase snake speed slightly every 5 seconds
+    if (static_cast<int>(elapsedTime) % 5 == 0) {
+        snakeSpeed += 0.1;  // Adjust the speed increase as needed
+    }
+}
+
+int main(int argc, char *argv[]) {
+    // Initialize Allegro
+    if (!al_init()) {
+        showError("Failed to initialize Allegro!");
         return -1;
     }
 
+    // Initialize display
+    display = al_create_display(SCREEN_W, SCREEN_H);
+    if (!display) {
+        showError("Failed to initialize display!");
+        return -1;
+    }
+    al_set_window_title(display, "Allegro Example - Displaying Images");
+
+    // Initialize keyboard routines
+    if (!al_install_keyboard()) {
+        al_show_native_message_box(display, "Error", "Error", "failed to initialize the keyboard!", nullptr,
+                                   ALLEGRO_MESSAGEBOX_ERROR);
+        return -1;
+    }
+
+    // Need to add image processor
+    if (!al_init_image_addon()) {
+        al_show_native_message_box(display, "Error", "Error", "Failed to initialize al_init_image_addon!", nullptr,
+                                   ALLEGRO_MESSAGEBOX_ERROR);
+        return 0;
+    }
+
+    // Set up event queue
+    event_queue = al_create_event_queue();
+    if (!event_queue) {
+        al_show_native_message_box(display, "Error", "Error", "Failed to create event_queue!", nullptr,
+                                   ALLEGRO_MESSAGEBOX_ERROR);
+        al_destroy_display(display);
+        return -1;
+    }
+
+    // Need to register events for our event queue
     al_register_event_source(event_queue, al_get_display_event_source(display));
     al_register_event_source(event_queue, al_get_keyboard_event_source());
 
-    bool running = true;
-    bool redraw = true;
-
-    ALLEGRO_EVENT event;
-
-    while (running) {
-        al_wait_for_event(event_queue, &event);
-
-        if (event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
-            running = false;
-        }
-
-        if (redraw && al_is_event_queue_empty(event_queue)) {
-            al_clear_to_color(al_map_rgb(0, 150, 0)); // Set background color
-            al_draw_text(font, al_map_rgb(255, 255, 255), SCREEN_WIDTH / 2, SCREEN_HEIGHT / 4, ALLEGRO_ALIGN_CENTRE, "Play");
-            al_draw_text(font, al_map_rgb(255, 255, 255), SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, ALLEGRO_ALIGN_CENTRE, "Options");
-            al_draw_text(font, al_map_rgb(255, 255, 255), SCREEN_WIDTH / 2, 3 * SCREEN_HEIGHT / 4, ALLEGRO_ALIGN_CENTRE, "Quit");
-
-            al_flip_display(); // Flip the backbuffer to the display
-            redraw = false;
-        }
+    // Need to add font addon initialization
+    if (!al_init_font_addon()) {
+        al_show_native_message_box(display, "Error", "Error", "Failed to initialize al_init_font_addon!", nullptr,
+                                   ALLEGRO_MESSAGEBOX_ERROR);
+        return -1;
     }
 
-    al_destroy_font(font);
+    // Load the grass image
+    grassImage = al_load_bitmap("grass.png");
+    if (!grassImage) {
+        showError("Failed to load grass.png!");
+        // Handle the error and return if necessary
+    }
+
+    // Seed the random number generator
+    srand(static_cast<unsigned int>(time(nullptr)));
+
+    // Load the bitmaps
+    // Snake
+    snakeHeadImage = al_load_bitmap("snakehead.png");
+    if (!snakeHeadImage) {
+        showError("Failed to load snakehead.png!");
+        al_destroy_display(display);
+        al_destroy_event_queue(event_queue);
+        return -1;
+    }
+
+    treeImage = al_load_bitmap("tree.png");
+    if (!treeImage) {
+        showError("Failed to load tree.png!");
+        al_destroy_display(display);
+        al_destroy_event_queue(event_queue);
+        return -1;
+    }
+
+    oilImage = al_load_bitmap("oil.png");
+    if (!oilImage) {
+        showError("Failed to load oil.png!");
+        al_destroy_display(display);
+        al_destroy_event_queue(event_queue);
+        return -1;
+    }
+
+    // Create a bitmap and load the image
+    ALLEGRO_BITMAP *ball = nullptr;
+    ball = al_load_bitmap("snakehead.png");
+
+    // Display the snake head image
+    al_draw_bitmap(snakeHeadImage, 0, 0, 0);
+
+    // Write display to screen
+    al_flip_display();
+
+    // Need to create a font for text drawing
+    font = al_create_builtin_font();
+
+    // Game loop
+    int dx = 100;
+    int dy = 100;
+    int treeX = rand() % (SCREEN_W - al_get_bitmap_width(treeImage));
+    int treeY = rand() % (SCREEN_H - al_get_bitmap_height(treeImage));
+    int oilX = rand() % (SCREEN_W - al_get_bitmap_width(oilImage));
+    int oilY = rand() % (SCREEN_H - al_get_bitmap_height(oilImage));
+
+    // Need to create a font for text drawing
+    ALLEGRO_FONT *font = al_create_builtin_font();
+
+    al_clear_to_color(SLATEGREY);
+    al_draw_bitmap(snakeHeadImage, dx, dy, 0);
+    al_draw_bitmap(oilImage, oilX, oilY, 0);
+    al_draw_bitmap(treeImage, treeX, treeY, 0);
+    al_flip_display();
+
+    // Draw the score on the screen
+    al_draw_textf(font, al_map_rgb(255, 255, 255), 10, 10, 0, "Score: %d", score);
+
+    bool doexit = false;
+    double startTime = al_get_time();
+    while (!doexit) {
+        ALLEGRO_EVENT ev;
+        if (al_get_next_event(event_queue, &ev)) {
+            if (ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
+                doexit = true;
+            } else if (ev.type == ALLEGRO_EVENT_KEY_DOWN) {
+                handleInput(ev);
+            }
+        }
+
+        // Move the image
+        if (movingUp) {
+            dy -= snakeSpeed;
+        } else if (movingDown) {
+            dy += snakeSpeed;
+        } else if (movingLeft) {
+            dx -= snakeSpeed;
+        } else if (movingRight) {
+            dx += snakeSpeed;
+        }
+
+        // Check for boundary conditions
+        if (dx < 0 || dx > SCREEN_W - al_get_bitmap_width(snakeHeadImage) ||
+            dy < 0 || dy > SCREEN_H - al_get_bitmap_height(snakeHeadImage)) {
+            // Image hit the boundary, trigger game over
+            al_show_native_message_box(display, "Game Over", "Game Over", "You hit the boundary!", nullptr,
+                                       ALLEGRO_MESSAGEBOX_ERROR);
+            doexit = true;
+        }
+
+        // Check for collision with oil
+        if (dx < oilX + al_get_bitmap_width(oilImage) &&
+            dx + al_get_bitmap_width(snakeHeadImage) > oilX &&
+            dy < oilY + al_get_bitmap_height(oilImage) &&
+            dy + al_get_bitmap_height(snakeHeadImage) > oilY) {
+            // Collision with oil, decrease score and reset oil position
+            score--;
+            oilX = rand() % (SCREEN_W - al_get_bitmap_width(oilImage));
+            oilY = rand() % (SCREEN_H - al_get_bitmap_height(oilImage));
+        }
+
+        // Check for collision with tree
+        if (dx < treeX + al_get_bitmap_width(treeImage) &&
+            dx + al_get_bitmap_width(snakeHeadImage) > treeX &&
+            dy < treeY + al_get_bitmap_height(treeImage) &&
+            dy + al_get_bitmap_height(snakeHeadImage) > treeY) {
+            // Collision with tree, increase score and reset tree position
+            score++;
+            treeX = rand() % (SCREEN_W - al_get_bitmap_width(treeImage));
+            treeY = rand() % (SCREEN_H - al_get_bitmap_height(treeImage));
+        }
+
+        al_rest(0.07);
+        renderGame(dx, dy, treeX, treeY, oilX, oilY);
+
+        if (score == -1) {
+            al_show_native_message_box(display, "Game Over", "Game Over", "Your score is too low!", nullptr,
+                                       ALLEGRO_MESSAGEBOX_ERROR);
+            score = 0;
+            doexit = true;
+        }
+
+        double elapsedTime = al_get_time() - startTime;
+        updateGameSpeed(elapsedTime, snakeSpeed);
+    }
+
+    // Release the bitmap data and exit with no errors
     al_destroy_display(display);
     al_destroy_event_queue(event_queue);
+    al_destroy_font(font);
 
     return 0;
 }
